@@ -52,30 +52,34 @@ if uploaded_file:
         df_plot = df.dropna(subset=['Start', 'Finish']).copy()
         df_plot = df_plot[df_plot['Finish'] > df_plot['Start']]
 
-        # --- GANTT CHART SECTION ---
+    # --- FIXED GANTT CHART SECTION ---
         st.subheader("Interactive Gantt Chart")
         if not df_plot.empty:
             try:
-                # Limit to first 200 tasks to prevent memory errors if file is huge
+                # Limit to first 200 tasks for performance
                 if len(df_plot) > 200:
                     st.warning("Showing first 200 activities. Use the sidebar to search for specific tasks.")
                     df_plot = df_plot.head(200)
 
+                # Fix: Use x_start and x_end instead of start and finish
                 fig = px.timeline(
                     df_plot, 
-                    start="Start", 
-                    finish="Finish", 
+                    x_start="Start", 
+                    x_end="Finish", 
                     y="task_name", 
                     color="status_code",
                     hover_data=['task_code'],
                     labels={"status_code": "Status", "task_name": "Activity"}
                 )
+                
                 fig.update_yaxes(autorange="reversed")
                 st.plotly_chart(fig, use_container_width=True)
+                
             except Exception as e:
                 st.error(f"Gantt Error: {e}")
         else:
             st.warning("No valid activities with both a Start and Finish date were found.")
+
 
 
 
@@ -85,4 +89,5 @@ if uploaded_file:
 
     else:
         st.error("No TASK table found in file.")
+
 
