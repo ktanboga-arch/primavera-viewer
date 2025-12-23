@@ -37,51 +37,47 @@ if uploaded_file:
     df = parse_xer_table(uploaded_file, "TASK")
 
     if df is not None:
-        # 1. Date Pre-processing (P6 dates are often YYYY-MM-DD HH:MM)
-        # We use early_start_date and early_end_date as defaults
+                # --- IMPROVED DATE HANDLING ---
         date_cols = ['early_start_date', 'early_end_date', 'act_start_date', 'act_end_date']
         for col in date_cols:
             if col in df.columns:
+                # Convert to datetime, turn errors into 'NaT' (Not a Time)
                 df[col] = pd.to_datetime(df[col], errors='coerce')
 
-        # Create a display column for Start/End to use in the Gantt
+        # Create Start/Finish columns using Actuals first, then Early dates
         df['Start'] = df['act_start_date'].fillna(df['early_start_date'])
         df['Finish'] = df['act_end_date'].fillna(df['early_end_date'])
 
-        # Filter out rows without dates (milestones with only one date or empty rows)
-        df_plot = df.dropna(subset=['Start', 'Finish'])
+        # CRITICAL FIX: Ensure dates are not null and Finish is AFTER Start
+        df_plot = df.dropna(subset=['Start', 'Finish']).copy()
+        df_plot = df_plot[df_plot['Finish'] > df_plot['Start']]
 
-        # --- Sidebar Filters ---
-        st.sidebar.header("Filters")
-        search = st.sidebar.text_input("Search Activity Name", "")
-        if search:
-            df_plot = df_plot[df_plot['task_name'].str.contains(search, case=False)]
-
-        # --- Metrics ---
-        col1, col2, col3 = st.columns(3)
-        col1.metric("Total Activities", len(df))
-        col2.metric("Plotted on Gantt", len(df_plot))
-        
-        # --- Gantt Chart ---
+        # --- GANTT CHART SECTION ---
         st.subheader("Interactive Gantt Chart")
         if not df_plot.empty:
-            fig = px.timeline(
-                df_plot, 
-                start="Start", 
-                finish="Finish", 
-                x_start="Start", 
-                x_end="Finish", 
-                y="task_name", 
-                color="status_code",
-                hover_data=['task_code', 'total_float'],
-                title="Project Schedule",
-                labels={"status_code": "Status", "task_name": "Activity"}
-            )
-            fig.update_yaxes(autorange="reversed") # Highest activity at the top
-            fig.update_layout(height=600, margin=dict(t=30, b=10, l=10, r=10))
-            st.plotly_chart(fig, use_container_width=True)
+            try:
+                # Limit to first 200 tasks to prevent memory errors if file is huge
+                if len(df_plot) > 200:
+                    st.warning("Showing first 200 activities. Use the sidebar to search for specific tasks.")
+                    df_plot = df_plot.head(200)
+
+                fig = px.timeline(
+                    df_plot, 
+                    start="Start", 
+                    finish="Finish", 
+                    y="task_name", 
+                    color="status_code",
+                    hover_data=['task_code'],
+                    labels={"status_code": "Status", "task_name": "Activity"}
+                )
+                fig.update_yaxes(autorange="reversed")
+                st.plotly_chart(fig, use_container_width=True)
+            except Exception as e:
+                st.error(f"Gantt Error: {e}")
         else:
-            st.warning("No valid start/end dates found to plot the Gantt chart.")
+            st.warning("No valid activities with both a Start and Finish date were found.")
+
+
 
         # --- Data Table ---
         st.subheader("Activity Details")
@@ -89,3 +85,4 @@ if uploaded_file:
 
     else:
         st.error("No TASK table found in file.")
+
