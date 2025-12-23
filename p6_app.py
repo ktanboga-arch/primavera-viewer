@@ -29,7 +29,7 @@ def parse_xer_table(file_buffer, table_name="TASK"):
 
 # --- UI Setup ---
 st.set_page_config(layout="wide", page_title="P6 Viewer + Gantt")
-st.title("🏗️ Primavera P6 Viewer & Gantt Chart")
+st.title("🏗️ Kerem's Primavera P6 Viewer & Gantt Chart")
 
 uploaded_file = st.file_uploader("Upload .xer file", type=['xer'])
 
@@ -89,5 +89,6 @@ if uploaded_file:
 
     else:
         st.error("No TASK table found in file.")
+
 
 
